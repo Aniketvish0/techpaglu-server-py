@@ -7,6 +7,7 @@ import google.generativeai as genai
 import json
 import os
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 load_dotenv()
 
@@ -14,7 +15,7 @@ USERNAME = os.getenv('X_USERNAME')
 EMAIL = os.getenv('X_EMAIL')
 PASSWORD = os.getenv('X_PASSWORD')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-
+MONGO_URI = os.getenv('MONGO_URI')
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -30,9 +31,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 client = Client(language='en-US')
 
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client["cookies_db"]
+collection = db["cookies"]
+stored_cookies = collection.find_one({"_id": "cookie_storage"})
+
+import json
+from pymongo import MongoClient
 
 async def x_login():
     try:
@@ -41,19 +48,31 @@ async def x_login():
             auth_info_2=EMAIL,
             password=PASSWORD
         )
-        client.save_cookies('cookies.json')
+        cookies = client.get_cookies()
+        collection.update_one(
+            {"_id": "cookie_storage"},
+            {"$set": {"data": cookies}},
+            upsert=True  
+        )
+        print("✅ Login successful! Cookies updated in MongoDB.")
     except Exception as e:
         print(f"❌ Login failed: {e}")
         raise
 
+from pymongo import MongoClient
+
 def load_cookies():
     try:
-        client.load_cookies('cookies.json')
+        if not stored_cookies or "data" not in stored_cookies:
+            print("❌ No cookies found in the database!")
+            return False
+        client.set_cookies(stored_cookies["data"])
+        print("✅ Cookies loaded from MongoDB!")
         return True
-    except Exception as e:
-        print(f"❌ Error loading cookies: {e}")
-        return False
 
+    except Exception as e:
+        print(f"❌ Error loading cookies from MongoDB: {e}")
+        return False
 
 async def get_tweets(username, max_tweets=300):
     try:
@@ -128,8 +147,6 @@ def analyze_tweets_with_gemini(tweets):
         """
         
         response = model.generate_content(prompt)
-        
-        # Try to parse the response as JSON
         try:
             json_start = response.text.find('{')
             json_end = response.text.rfind('}') + 1
@@ -141,8 +158,8 @@ def analyze_tweets_with_gemini(tweets):
             return {
                 "tech_enthusiasm_score": 50,
                 "tech_topics_percentage": 50,
-                "key_tech_interests": ["Unable to parse specific interests"],
-                "analysis_summary": f"Analysis attempted. Raw response: {response.text}"
+                "key_tech_interests": ["Analysis failes due to some reason"],
+                "analysis_summary": f"Analysis attempted but faild. Raw response: {response.text}"
             }
     
     except Exception as e:
@@ -174,4 +191,4 @@ async def analyze_user(username: str):
 # Main entry point
 if __name__ == "__main__":
     print("🚀 Starting server...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
