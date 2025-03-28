@@ -1,3 +1,56 @@
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from bson import ObjectId
+from datetime import datetime, timezone
+
+class PyObjectId(ObjectId):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not ObjectId.is_valid(v):
+            raise ValueError("Invalid ObjectId")
+        return ObjectId(v)
+
+    @classmethod
+    def __modify_schema__(cls, field_schema):
+        field_schema.update(type="string")
+
+class BaseMongoModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    class Config:
+        allow_population_by_field_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+    def update(self):
+        self.updated_at = datetime.now(timezone.utc)
+
+class Analysis(BaseMongoModel):
+    user_id: PyObjectId 
+    username: str
+    tech_enthusiasm_score: int
+    tech_topics_percentage: int
+    key_tech_interests: List[str]
+    analysis_summary: str
+    total_tweets: int
+    tweets: List[str]
+    profile_url: str
+
+class User(BaseMongoModel):
+    username: str
+    recent_score: int
+    profile_url: str
+    analyses: List[PyObjectId] = []
+
+
+ok now this is my schemas 
+
 import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -222,3 +275,7 @@ async def check_health():
 if __name__ == "__main__":
     print("🚀 Starting server...")
     uvicorn.run(app, host="127.0.0.1", port=8000)
+
+this is my main.py file can you update is like analyze_user function as per the new 2 way binded schema ,
+
+and make a new route /all-user-details where the username, the most recent score the profile url and all the analysis in the form of list are saved  
