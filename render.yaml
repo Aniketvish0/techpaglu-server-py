@@ -1,12 +1,16 @@
 services:
   - type: web
-    name: tweet-analyzer
-    runtime: docker
+    name: pyretwwit
+    runtime: python
     plan: free
-    region: oregon
-    branch: main
-    healthCheckPath: /
+    region: oregon  
+    buildCommand: |
+      pip install -r requirements.txt
+    startCommand: |
+      uvicorn main:app --host 0.0.0.0 --port 8000
     envVars:
+      - key: MONGO_URI
+        sync: false
       - key: X_USERNAME
         sync: false
       - key: X_EMAIL
@@ -15,3 +19,4 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      
