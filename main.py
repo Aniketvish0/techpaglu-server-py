@@ -188,6 +188,12 @@ async def analyze_user(username: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/health")
+async def check_health():
+    return "Server is healthy"
+
+
+
 # Main entry point
 if __name__ == "__main__":
     print("🚀 Starting server...")
