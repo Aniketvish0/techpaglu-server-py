@@ -1,4 +1,4 @@
-import asyncio
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from datetime import datetime, timezone , timedelta
+
 load_dotenv()
 
 USERNAME = os.getenv('X_USERNAME')
@@ -146,7 +147,8 @@ def analyze_tweets_with_gemini(tweets):
         Scoring Criteria:
         - How much the user is tweeting about technology and engineering and anythings related to technology
         - How much is the ratio of tech tweets
-        - do not round of the score, scores must be raw between 0 to 100
+        - do not round of the score, scores must be raw between 0 to 100 (simple integer)
+        - what is the majoriy of their tweets, are majority of thier tweets are about technology or random 
         """
         
         response = model.generate_content(prompt)
@@ -175,6 +177,8 @@ def analyze_tweets_with_gemini(tweets):
 @app.get("/analyse/{username}")
 async def analyze_user(username: str):
     try:
+        user = users_collection.find_one({"username": username})
+        
         recent_analysis = analyses_collection.find_one({
             "username": username,
             "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=7)}
@@ -187,7 +191,7 @@ async def analyze_user(username: str):
         
         if not tweets_data['tweets']:
             raise HTTPException(status_code=404, detail="No tweets found for this user")
-        
+    
         analysis = analyze_tweets_with_gemini(tweets_data['tweets'])
         
         analysis_doc = {
@@ -202,12 +206,54 @@ async def analyze_user(username: str):
             "created_at": datetime.now(timezone.utc)
         }
         
-        result = analyses_collection.insert_one(analysis_doc)
-        analysis_doc['_id'] = result.inserted_id
+        analysis_result = analyses_collection.insert_one(analysis_doc)
+        analysis_doc['_id'] = analysis_result.inserted_id
         
-        print("✅ New analysis saved to database")
-        
+        if not user:
+            user_doc = {
+                "username": username,
+                "recent_score": analysis['tech_enthusiasm_score'],
+                "profile_url": tweets_data['profile_url'],
+                "analyses": [analysis_result.inserted_id]
+            }
+            users_collection.insert_one(user_doc)
+        else:
+            users_collection.update_one(
+                {"username": username},
+                {
+                    "$set": {
+                        "recent_score": analysis['tech_enthusiasm_score'],
+                        "profile_url": tweets_data['profile_url']
+                    },
+                    "$push": {"analyses": analysis_result.inserted_id}
+                }
+            )
         return {k: v for k, v in analysis_doc.items() if k != '_id'}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/all-user-details")
+async def get_all_user_details():
+    try:
+        users = list(users_collection.find())
+        
+        user_details = []
+        for user in users:
+            user_analyses = list(analyses_collection.find({
+                "_id": {"$in": user.get('analyses', [])}
+            }))
+            user_analyses.sort(key=lambda x: x.get('created_at', datetime.min), reverse=True)
+            
+            user_detail = {
+                "username": user['username'],
+                "recent_score": user['recent_score'],
+                "profile_url": user.get('profile_url', ''),
+                "total_analyses": len(user.get('analyses', []))
+            }
+            
+            user_details.append(user_detail)
+        return user_details
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
