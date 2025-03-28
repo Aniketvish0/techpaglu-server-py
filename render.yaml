@@ -1,13 +1,10 @@
 services:
   - type: web
-    name: pyretwwit
+    name: techpaglu
     runtime: python
-    plan: free
-    region: oregon  
-    buildCommand: |
-      pip install -r requirements.txt
-    startCommand: |
-      uvicorn main:app --host 0.0.0.0 --port 10000
+    plan: free 
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: MONGO_URI
         sync: false
