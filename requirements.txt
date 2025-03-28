@@ -2,7 +2,6 @@ fastapi
 uvicorn
 twikit
 google-generativeai
-python-configparser
 python-dotenv
 requests
 pydantic
