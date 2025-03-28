@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: tweet-analyzer
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    healthCheckPath: /
+    envVars:
+      - key: X_USERNAME
+        sync: false
+      - key: X_EMAIL
+        sync: false
+      - key: X_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

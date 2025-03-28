@@ -1,3 +1,31 @@
-cookies.json
-venv
+# Virtual Environment
+venv/
+*.venv
+.venv/
+
+# Configuration Files
 config.ini
+cookies.json
+
+# Environment Files
+.env
+*.env
+!.env.example
+
+# Python Compiled Files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
