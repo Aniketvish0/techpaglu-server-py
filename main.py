@@ -146,9 +146,8 @@ def analyze_tweets_with_gemini(tweets):
         
         Scoring Criteria:
         - How much the user is tweeting about technology and engineering and anythings related to technology
-        - How much is the ratio of tech tweets
+        - How much is the ratio of tech tweets and also on the quantity of tech tweets
         - do not round of the score, scores must be raw between 0 to 100 upto 1 digit decimal point 
-        - do not give generalized score for ever users
         - what is the majoriy of their tweets, are majority of thier tweets are about technology or random 
         """
         
