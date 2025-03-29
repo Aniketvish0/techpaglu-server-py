@@ -1,5 +1,4 @@
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from twikit import Client
@@ -9,7 +8,9 @@ import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from datetime import datetime, timezone , timedelta
-
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 load_dotenv()
 
 USERNAME = os.getenv('X_USERNAME')
@@ -21,8 +22,10 @@ MONGO_URI = os.getenv('MONGO_URI')
 genai.configure(api_key=GEMINI_API_KEY)
 
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
-
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -96,7 +99,7 @@ async def get_tweets(username, max_tweets=300):
         
         try:
             while len(all_tweets) < max_tweets:
-               
+    
                 more_tweets = await tweets.next()
                 
                 if not more_tweets:
@@ -175,13 +178,14 @@ def analyze_tweets_with_gemini(tweets):
 
 # FastAPI Routes
 @app.get("/analyse/{username}")
-async def analyze_user(username: str):
+@limiter.limit("3/minute") 
+async def analyze_user(request: Request,username: str):
     try:
         user = users_collection.find_one({"username": username})
         
         recent_analysis = analyses_collection.find_one({
             "username": username,
-            "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=7)}
+            "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=3)}
         })
         
         if recent_analysis:
@@ -189,7 +193,7 @@ async def analyze_user(username: str):
         
         tweets_data = await get_tweets(username)
         
-        if not tweets_data['tweets']:
+        if not len(tweets_data['tweets']):
             raise HTTPException(status_code=404, detail="No tweets found for this user")
     
         analysis = analyze_tweets_with_gemini(tweets_data['tweets'])
