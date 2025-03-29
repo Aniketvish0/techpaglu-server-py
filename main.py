@@ -62,7 +62,6 @@ async def x_login():
         print(f"❌ Login failed: {e}")
         raise
 
-from pymongo import MongoClient
 
 def load_cookies():
     try:
@@ -124,12 +123,13 @@ async def get_tweets(username, max_tweets=300):
     except Exception as e:
         print(f"❌ Error retrieving tweets for {username}: {e}")
         return {"tweets": [], "profile_url": ""}
-# Analyze Tweets with Gemini
+    
+
 def analyze_tweets_with_gemini(tweets):
     try:
         
         tweets_text = " ".join(tweets)
-        print(f"📝 Total tweet text length: {len(tweets_text)} characters")
+        print(f"Total tweet text length: {len(tweets_text)} characters")
         
         model = genai.GenerativeModel('gemini-2.0-flash')
         
@@ -147,7 +147,8 @@ def analyze_tweets_with_gemini(tweets):
         Scoring Criteria:
         - How much the user is tweeting about technology and engineering and anythings related to technology
         - How much is the ratio of tech tweets
-        - do not round of the score, scores must be raw between 0 to 100 (simple integer)
+        - do not round of the score, scores must be raw between 0 to 100 upto 1 digit decimal point 
+        - do not give generalized score for ever users
         - what is the majoriy of their tweets, are majority of thier tweets are about technology or random 
         """
         
