@@ -8,9 +8,7 @@ import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from datetime import datetime, timezone , timedelta
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+
 load_dotenv()
 
 USERNAME = os.getenv('X_USERNAME')
@@ -22,10 +20,8 @@ MONGO_URI = os.getenv('MONGO_URI')
 genai.configure(api_key=GEMINI_API_KEY)
 
 
-limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -178,8 +174,7 @@ def analyze_tweets_with_gemini(tweets):
 
 # FastAPI Routes
 @app.get("/analyse/{username}")
-@limiter.limit("3/minute") 
-async def analyze_user(request: Request,username: str):
+async def analyze_user(username: str):
     try:
         user = users_collection.find_one({"username": username})
         
@@ -237,30 +232,44 @@ async def analyze_user(request: Request,username: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+from fastapi import HTTPException
+from pymongo import DESCENDING
+
 @app.get("/all-user-details")
 async def get_all_user_details():
     try:
-        users = list(users_collection.find())
-        
-        user_details = []
-        for user in users:
-            user_analyses = list(analyses_collection.find({
-                "_id": {"$in": user.get('analyses', [])}
-            }))
-            user_analyses.sort(key=lambda x: x.get('created_at', datetime.min), reverse=True)
-            
-            user_detail = {
-                "username": user['username'],
-                "recent_score": user['recent_score'],
-                "profile_url": user.get('profile_url', ''),
-                "total_analyses": len(user.get('analyses', []))
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "analyses_collection",  # Match the exact collection name
+                    "localField": "analyses",
+                    "foreignField": "_id",
+                    "as": "user_analyses"
+                }
+            },
+            {
+                "$addFields": {
+                    "recent_analysis": { "$arrayElemAt": ["$user_analyses", -1] },
+                    "total_analyses": { "$size": "$analyses" }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "username": 1,
+                    "recent_score": 1,
+                    "profile_url": { "$ifNull": ["$profile_url", ""] },
+                    "total_analyses": 1
+                }
             }
-            
-            user_details.append(user_detail)
-        return user_details
-    
+        ]
+
+        users = list(users_collection.aggregate(pipeline))
+        return users
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/health")
 async def check_health():

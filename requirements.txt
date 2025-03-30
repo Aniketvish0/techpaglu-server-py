@@ -7,4 +7,3 @@ requests
 pydantic
 python-multipart 
 pymongo
-slowapi
