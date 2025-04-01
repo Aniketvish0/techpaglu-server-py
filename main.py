@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from twikit import Client
@@ -25,7 +25,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://techpaglu.vercel.app","http://localhost:5173"],  
+    allow_origins=["https://techpaglu.vercel.app"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -65,30 +65,25 @@ async def x_login():
 def load_cookies():
     try:
         if not stored_cookies or "data" not in stored_cookies:
-            print("❌ No cookies found in the database!")
             return False
         client.set_cookies(stored_cookies["data"])
-        print("✅ Cookies loaded from MongoDB!")
         return True
 
     except Exception as e:
-        print(f"❌ Error loading cookies from MongoDB: {e}")
+        print(f" Error loading cookies from MongoDB: {e}")
         return False
 
 async def get_tweets(username, max_tweets=300):
     try:
-       
         if not load_cookies():
             print("🔄 Cookies not loaded, attempting login...")
             await x_login()
-        
-
         user = await client.get_user_by_screen_name(username)
         
         tweets = await client.get_user_tweets(
             user_id=user.id, 
             tweet_type='Tweets', 
-            count=50  
+            count=300  
         )
         
         all_tweets = list(tweets)
@@ -145,7 +140,7 @@ def analyze_tweets_with_gemini(tweets):
         
         Scoring Criteria:
         - How much the user is tweeting about technology and engineering and anythings related to technology
-        - How much is the ratio of tech tweets
+        - How much is the ratio of tech tweets and also the quality and quality of technology related tweets
         - do not round of the score, scores must be raw between 0 to 100 upto 1 digit decimal point 
         - what is the majoriy of their tweets, are majority of thier tweets are about technology or random 
         """
@@ -241,7 +236,7 @@ async def get_all_user_details():
         pipeline = [
             {
                 "$lookup": {
-                    "from": "analyses_collection",  # Match the exact collection name
+                    "from": "analyses_collection",  
                     "localField": "analyses",
                     "foreignField": "_id",
                     "as": "user_analyses"
